@@ -278,6 +278,18 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     customer_id = stripe_session_data.get("customer")
     user=session.query(Users).filter(Users.stripe_id==customer_id).first()
     user_id=user.id
+    checkout_created_at = datetime.fromtimestamp(stripe_session_data['created'], tz=timezone.utc)
+    reservations_db=session.query(Reservations).filter(Reservations.user_id==user_id).all()
+    reservations_before_checkout=0
+    for reservation in reservations_db:   
+        reservation_created_at=reservation.expires_at-timedelta(minutes=CREATE_RESERVATION_EXPIRATION_TIME)
+        if reservation_created_at<=checkout_created_at:
+            reservations_before_checkout+=1
+    if reservations_before_checkout==0:
+        stripe.Refund.create(payment_intent=stripe_session_data['payment_intent'])
+        print("Refunded because no reservations existed before checkout.")
+
+        
     try:
         
         cart_products=session.query(Cart).filter(Cart.user_id==user_id).all()
