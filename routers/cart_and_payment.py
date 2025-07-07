@@ -348,6 +348,20 @@ def handle_failed_payment(intent, session:SessionDB):
         session.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while deleting the reservations')
     
+def handle_expired_payment(intent, session:SessionDB):
+    # Log failure or notify user
+    customer_id = intent.get("customer")
+    user=session.query(Users).filter(Users.stripe_id==customer_id).first()
+    user_id=user.id
+    try:
+        reservations_db=session.query(Reservations).filter(Reservations.user_id==user_id).all()
+        for reservation_db in reservations_db:
+            session.delete(reservation_db)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while deleting the reservations')
+    
 
 @router.post("/webhook/stripe", status_code=200,tags=['payment'])
 async def stripe_webhook(
@@ -374,6 +388,10 @@ async def stripe_webhook(
     elif event['type'] == 'payment_intent.payment_failed':
         intent = event['data']['object']
         handle_failed_payment(intent,session)
+    
+    elif event['type'] == 'payment_intent.expired':
+        intent = event['data']['object']
+        handle_expired_payment(intent,session)
         
     return {"status": "success"}
 
