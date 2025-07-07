@@ -89,8 +89,8 @@ app.add_middleware(
 
 #app.add_middleware(HTTPSRedirectMiddleware)
 
-app.add_middleware(TrustedHostMiddleware,
-    allowed_hosts=[ALLOWED_HOST_1, ALLOWED_HOST_2],)
+#app.add_middleware(TrustedHostMiddleware,
+#    allowed_hosts=[ALLOWED_HOST_1, ALLOWED_HOST_2],)
 
 #class CSPMiddleware(BaseHTTPMiddleware):
 #    async def dispatch(self, request: Request, call_next):
