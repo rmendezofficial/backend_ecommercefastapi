@@ -179,7 +179,7 @@ async def delete_product(
         session.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred while removing the product from the cart.")
   
-''' maybe in production it shouldnt be allowed
+
 @router.post('/delete_reservations',tags=['payment'])
 async def delete_reservations(
     request:Request,
@@ -197,7 +197,7 @@ async def delete_reservations(
     except SQLAlchemyError:
         session.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while deleting reservations') 
-'''
+
 
 @router.post('/create_checkout_session',tags=['payment'])
 async def create_checkout_session(
