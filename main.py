@@ -8,7 +8,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from models.users import Users
 from routers.users import get_password_hash, process_phone_number
-from config import FIRST_ADMIN_PASSWORD, FIRST_ADMIN_EMAIL, FIRST_ADMIN_PHONE_NUMBER, FIRST_ADMIN_PHONE_NUMBER_REGION, RELEASE_EXPIRED_RESERVATIONS_TIME
+from config import FIRST_ADMIN_PASSWORD, FIRST_ADMIN_EMAIL, FIRST_ADMIN_PHONE_NUMBER, FIRST_ADMIN_PHONE_NUMBER_REGION, RELEASE_EXPIRED_RESERVATIONS_TIME, ORIGIN_1, ORIGIN_2, ALLOWED_HOST_1, ALLOWED_HOST_2
 from fastapi_csrf_protect import CsrfProtect
 from schemas.security import CsrfSettings
 from fastapi_csrf_protect.exceptions import CsrfProtectError
@@ -23,8 +23,8 @@ from sqlalchemy.exc import SQLAlchemyError
 
 
 origins = [
-    "https://ecommerce.rcmendez.com",
-    "http://localhost:3000", 
+    ORIGIN_1,
+    ORIGIN_2, 
 ]
 
 def release_expired_reservations():
@@ -90,7 +90,7 @@ app.add_middleware(
 #app.add_middleware(HTTPSRedirectMiddleware)
 
 app.add_middleware(TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1"],)
+    allowed_hosts=[ALLOWED_HOST_1, ALLOWED_HOST_2],)
 
 #class CSPMiddleware(BaseHTTPMiddleware):
 #    async def dispatch(self, request: Request, call_next):
@@ -131,8 +131,4 @@ app.include_router(cart_and_payment.router)
 app.include_router(orders.router)
 
 
-
-
-
-    
 
