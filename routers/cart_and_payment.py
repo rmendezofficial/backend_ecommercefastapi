@@ -20,9 +20,11 @@ from datetime import datetime, timedelta, timezone
 from models.orders import Orders, OrderItems, OrderStatus
 from models.users import ShippingAddresses, Users
 from models.payments import Payments, PaymentMethod, PaymentStatus
+import pytz 
 
 router=APIRouter(prefix='/payment')
 
+utc=pytz.UTC
 stripe.api_key=STRIPE_SECRET_KEY
 
 def create_reservation(session:SessionDB, product_id:int,units:int, user_id:int):
@@ -283,7 +285,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     reservations_before_checkout=0
     for reservation in reservations_db:   
         reservation_created_at=reservation.expires_at-timedelta(minutes=CREATE_RESERVATION_EXPIRATION_TIME)
-        if reservation_created_at<=checkout_created_at:
+        if reservation_created_at.astimezone(utc)<=checkout_created_at.astimezone(utc):
             reservations_before_checkout+=1
     if reservations_before_checkout==0:
         stripe.Refund.create(payment_intent=stripe_session_data['payment_intent'])
