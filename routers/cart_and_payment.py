@@ -290,7 +290,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     if reservations_before_checkout==0:
         stripe.Refund.create(payment_intent=stripe_session_data['payment_intent'])
         print("Refunded because no reservations existed before checkout.")
-
+        return JSONResponse(status_code=status.HTTP_200_OK, content={'message':'Refunded because no reservations existed before checkout.'})
         
     try:
         
