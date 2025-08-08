@@ -315,7 +315,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     user_id=user.id
     linked_checkout_session=session.query(CheckOutSessions).filter(CheckOutSessions.session_id==stripe_session_data['id']).first()
     payment_intent = stripe.PaymentIntent.retrieve(stripe_session_data['payment_intent'])
-    if linked_checkout_session.status!='active' and payment_intent['amount_received'] > payment_intent['amount_refunded']:
+    if linked_checkout_session.status!='active' and payment_intent['amount_received'] > payment_intent["charges"]["data"][0]["refunds"]["data"]:
         #create refund request
         create_refund(session,user_id, payment_intent, linked_checkout_session.id)
         print(f'A refund petition was created')
