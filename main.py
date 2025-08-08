@@ -8,7 +8,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from models.users import Users
 from routers.users import get_password_hash, process_phone_number
-from config import FIRST_ADMIN_PASSWORD, FIRST_ADMIN_EMAIL, FIRST_ADMIN_PHONE_NUMBER, FIRST_ADMIN_PHONE_NUMBER_REGION, RELEASE_EXPIRED_RESERVATIONS_TIME, ORIGIN_1, ORIGIN_2, ALLOWED_HOST_1, ALLOWED_HOST_2
+from config import FIRST_ADMIN_PASSWORD, FIRST_ADMIN_EMAIL, FIRST_ADMIN_PHONE_NUMBER, FIRST_ADMIN_PHONE_NUMBER_REGION, RELEASE_EXPIRED_RESERVATIONS_TIME, ORIGIN_1, ORIGIN_2, ALLOWED_HOST_1, ALLOWED_HOST_2, CHECKOUT_SESSION_EXPIRATION_TIME
 from fastapi_csrf_protect import CsrfProtect
 from schemas.security import CsrfSettings
 from fastapi_csrf_protect.exceptions import CsrfProtectError
@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 from models.reservations import Reservations
 from models.products import Products
+from models.payments import CheckOutSessions
 from routers.cart_and_payment import delete_reservation
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -27,24 +28,23 @@ origins = [
     ORIGIN_2, 
 ]
 
-def release_expired_reservations():
+'''def release_expired_checkout_sessions(): #set them to expired rather than deleting, and do the reconcilliation process as well
     db=SessionLocal()
     now=datetime.now(timezone.utc)
     try:
-        expired_reservations=db.query(Reservations).filter(Reservations.status=='pending', Reservations.expires_at<now).all()
-        for expired in expired_reservations:
-            product_db=db.query(Products).filter(Products.id == expired.product_id).first()
-            if product_db:
-                delete_reservation(db, product_db.id,expired.units,expired.user_id)
+        expired_checkout_sessions=db.query(CheckOutSessions).filter(CheckOutSessions.expires_at<now).all()
+        for expired in expired_checkout_sessions:
+            db.delete(expired)
         db.commit()
         db.close()
-        print('All reservations were deleted')
-    except SQLAlchemyError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while deleting the reservations')
-  
-scheduler = BackgroundScheduler()
-scheduler.add_job(release_expired_reservations, 'interval', minutes=RELEASE_EXPIRED_RESERVATIONS_TIME)
+        print('All checkout sessions were deleted')
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f'An error occurred while deleting the checkout sessions {e}')
 
+scheduler = BackgroundScheduler()
+scheduler.add_job(release_expired_checkout_sessions, 'interval', minutes=CHECKOUT_SESSION_EXPIRATION_TIME)
+'''
 
 @asynccontextmanager
 async def lifespan(app:FastAPI):
@@ -61,9 +61,9 @@ async def lifespan(app:FastAPI):
         session.refresh(first_admin)  
     else:
         session.close()
-    scheduler.start()
+    #scheduler.start()
     yield
-    scheduler.shutdown()
+    #scheduler.shutdown()
 
 app=FastAPI(lifespan=lifespan)
 

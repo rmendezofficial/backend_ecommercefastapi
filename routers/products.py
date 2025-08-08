@@ -9,6 +9,7 @@ from models.categories import Categories
 from schemas.products import Product, ProductImages, ProductUser, ProductUpdate, ProductsInventoryParams, ProductsSortBy, ProductsSortByUser,ProductsSearchUser
 from dependencies.database import SessionDB
 from sqlalchemy.exc import SQLAlchemyError
+from models.reservations import Reservations
 
 
 router=APIRouter(prefix='/products')
@@ -87,6 +88,9 @@ async def update_product(
     existing_product=session.query(Products).filter(Products.id==product_id).first()
     if not existing_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail='Product does not exist')
+    existing_reservation=session.query(Reservations).filter(Reservations.product_id==product_id).first()
+    if existing_reservation:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail='Product cannot be modified because there are reservations of the product')
     try: 
         product_dict=product.model_dump(exclude_unset=True)
         
@@ -158,6 +162,9 @@ async def delete_product(
     existing_product=session.query(Products).filter(Products.id==product_id).first()
     if not existing_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail='Product does not exist')
+    existing_reservation=session.query(Reservations).filter(Reservations.product_id==product_id).first()
+    if existing_reservation:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail='Product cannot be modified because there are reservations of the product')
     try:
         existing_product.status='deleted'
         session.commit()
@@ -167,7 +174,7 @@ async def delete_product(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred while deleting the product.")
   
       
-@router.post('get_products_admins',tags=['products_admins'])
+@router.post('/get_products_admins',tags=['products_admins'])
 async def get_products_admins(
     request:Request,
     admin: Annotated[bool, Depends(is_admin)],
@@ -474,7 +481,7 @@ async def get_products(
 
    
 
-@router.post('get_products_search',tags=['products'])
+@router.post('/get_products_search',tags=['products'])
 async def get_products_search(
     request:Request,
     session:SessionDB,

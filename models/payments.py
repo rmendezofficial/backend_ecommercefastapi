@@ -32,4 +32,18 @@ class Payments(Base):
     payment_intent_id=Column(String(200),nullable=False)
     charge_id=Column(String(200),nullable=False)
     receipt_url=Column(Text,nullable=False)
+
+class CheckoutStatus(str, PyEnum):
+    expired='expired'
+    active='active'    
+    cancelled='cancelled'
+
+class CheckOutSessions(Base):
+    __tablename__='checkoutsessions'
     
+    id=Column(Integer, primary_key=True, index=True)
+    user_id=Column(Integer,ForeignKey('users.id'),nullable=False)
+    expires_at=Column(DateTime)
+    status=Column(Enum(CheckoutStatus), nullable=False)
+    session_id=Column(String(200),nullable=False)
+    session_url=Column(Text,nullable=False)

@@ -19,13 +19,33 @@ from models.reservations import Reservations
 from datetime import datetime, timedelta, timezone
 from models.orders import Orders, OrderItems, OrderStatus
 from models.users import ShippingAddresses, Users
-from models.payments import Payments, PaymentMethod, PaymentStatus
+from models.payments import Payments, PaymentMethod, PaymentStatus, CheckOutSessions
+from models.refunds import Refunds
 import pytz 
 
 router=APIRouter(prefix='/payment')
 
 utc=pytz.UTC
 stripe.api_key=STRIPE_SECRET_KEY
+
+def create_checkout_session_row(session:SessionDB, user_id:int, stripe_session_id:str, stripe_session_url:str):
+    try:
+        checkout_session_db=CheckOutSessions(user_id=user_id, status='active', session_id=stripe_session_id, session_url=stripe_session_url)
+        session.add(checkout_session_db)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occured while creating checkout sessions.')
+    
+def create_refund(session:SessionDB, user_id:int, payment_intent_id:str, checkout_session_id:int):
+    try:
+        refund_db=Refunds(user_id=user_id, payment_intent_id=payment_intent_id, checkout_session_id=checkout_session_id)
+        session.add(refund_db)
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occured while creating the refund petition.')
+        
 
 def create_reservation(session:SessionDB, product_id:int,units:int, user_id:int):
     existing_product=session.query(Products).filter(Products.id==product_id).first()
@@ -71,7 +91,17 @@ def delete_reservation(session:SessionDB, product_id:int, units: int, user_id:in
             
     except SQLAlchemyError:
         session.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while releasing the product')
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while releasing the product.')
+
+def expire_checkout_sessions(session:SessionDB, user_id:int):
+    existing_checkout_sessions=session.query(CheckOutSessions).filter(CheckOutSessions.user_id==user_id).all()
+    try:
+        for checkout_session in existing_checkout_sessions:
+            checkout_session.status='expired'
+        session.commit()
+    except SQLAlchemyError:
+        session.rollback()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occured while expiring checkout sessions.')
     
 def is_line2(stripe_session_data):
     line2=stripe_session_data['line2']
@@ -192,6 +222,7 @@ async def delete_reservations(
 ):
     await csrf_protect.validate_csrf(request)
     try:
+        expire_checkout_sessions(session, user.id)
         reservations_db=session.query(Reservations).filter(Reservations.user_id==user.id).all()
         for reservation in reservations_db:
             session.delete(reservation)
@@ -267,8 +298,10 @@ async def create_checkout_session(
             automatic_tax={'enabled':True},
             expires_at=int((datetime.now(timezone.utc)+timedelta(minutes=CHECKOUT_PAYMENT_EXPIRATION_TIME)).timestamp())
         )
+        create_checkout_session_row(session, user.id, stripe_session.id, stripe_session.url)
         return JSONResponse(status_code=status.HTTP_200_OK,content={'url':stripe_session.url})
     except Exception as e:
+        expire_checkout_sessions(session, user.id)
         existing_reservation_created=session.query(Reservations).filter(Reservations.user_id==user.id).first()
         if existing_reservation_created:
             for cart_product in cart_products:
@@ -280,62 +313,9 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     customer_id = stripe_session_data.get("customer")
     user=session.query(Users).filter(Users.stripe_id==customer_id).first()
     user_id=user.id
-    checkout_created_at = datetime.fromtimestamp(stripe_session_data['created'], tz=timezone.utc)
+       
     reservations_db=session.query(Reservations).filter(Reservations.user_id==user_id).all()
-    reservations_before_checkout=0
-    for reservation in reservations_db:   
-        reservation_created_at=reservation.expires_at-timedelta(minutes=CREATE_RESERVATION_EXPIRATION_TIME)
-        print(f'reservation created at: {reservation_created_at.astimezone(utc)}')
-        print(f'checkout created at: {checkout_created_at.astimezone(utc)}')
-        
-        if reservation_created_at.astimezone(utc)<=checkout_created_at.astimezone(utc):
-            reservations_before_checkout+=1
-    if reservations_before_checkout==0:
-        stripe.Refund.create(payment_intent=stripe_session_data['payment_intent'])
-        return JSONResponse(status_code=status.HTTP_200_OK, content={'message':'Refunded because no reservations existed before checkout.'})
-        
-    try:
-        
-        cart_products=session.query(Cart).filter(Cart.user_id==user_id).all()
-        
-        
-        #create shipping address
-        shipping_details=stripe_session_data['shipping_details']
-        address=shipping_details['address']
-        line2=is_line2(address)
-        shipping_address_db=ShippingAddresses(user_id=user_id,address_line1=address['line1'],address_line2=line2,city=address['city'],state=address['state'],country=address['country'],zip_code=address['postal_code'])
-        session.add(shipping_address_db)
-        session.commit()
-        session.refresh(shipping_address_db)
-        #create order
-        order_db=Orders(user_id=user_id, total_amount=stripe_session_data['amount_total'], status=OrderStatus.paid, shipping_address_id=shipping_address_db.id)
-        session.add(order_db)
-        session.commit()
-        session.refresh(order_db)
-        #create order items
-        for cart_product_db in cart_products:
-            product_db=session.query(Products).filter(Products.id==cart_product_db.product_id).first()
-            order_item_db=OrderItems(order_id=order_db.id, units=cart_product_db.units, product_id=cart_product_db.product_id, price_at_purchase=product_db.price)
-            session.add(order_item_db)
-        #create payment
-        payment_intent_id=stripe_session_data['payment_intent']
-        payment_intent = stripe.PaymentIntent.retrieve(payment_intent_id)
-        charge=payment_intent["charges"]["data"][0]    
-        payment_db=Payments(order_id=order_db.id, user_id=user_id, payment_method=PaymentMethod.stripe, status=PaymentStatus.paid, stripe_session_id=stripe_session_data['id'], stripe_customer_id=customer_id, currency=stripe_session_data['currency'], tax_details=stripe_session_data['total_details'].get("amount_tax", 0), payment_intent_id=payment_intent_id, charge_id=charge['id'], receipt_url=charge['receipt_url'])
-        session.add(payment_db)
-        #delete cart products
-        for cart_product in cart_products:
-            session.delete(cart_product)
-        #delete reservations 
-        reservations_db=session.query(Reservations).filter(Reservations.user_id==user_id).all()
-        for reservation_db in reservations_db:
-            session.delete(reservation_db)
-        print(f'stripe_session:{stripe_session_data}')
-        session.commit()
-    except SQLAlchemyError:
-        session.rollback()
-        #create email for admin indicationg the payment was successful but there was an error creating the order, also delete cart from user, reservations from user, and create the order for the user
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while creating the order')
+    return JSONResponse(status_code=status.HTTP_200_OK, content={'message':'successful payment done','user_id':user_id})
     
 
 def handle_failed_payment(intent, session:SessionDB):
@@ -343,6 +323,7 @@ def handle_failed_payment(intent, session:SessionDB):
     customer_id = intent.get("customer")
     user=session.query(Users).filter(Users.stripe_id==customer_id).first()
     user_id=user.id
+    expire_checkout_sessions(session, user_id)
     try:
         reservations_db=session.query(Reservations).filter(Reservations.user_id==user_id).all()
         for reservation_db in reservations_db:
@@ -357,6 +338,7 @@ def handle_expired_payment(intent, session:SessionDB):
     customer_id = intent.get("customer")
     user=session.query(Users).filter(Users.stripe_id==customer_id).first()
     user_id=user.id
+    expire_checkout_sessions(session, user_id)
     try:
         reservations_db=session.query(Reservations).filter(Reservations.user_id==user_id).all()
         for reservation_db in reservations_db:
