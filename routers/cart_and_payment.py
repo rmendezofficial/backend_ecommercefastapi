@@ -315,7 +315,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     user_id=user.id
        
     reservations_db=session.query(Reservations).filter(Reservations.user_id==user_id).all()
-    return JSONResponse(status_code=status.HTTP_200_OK, content={'message':'successful payment done','user_id':user_id})
+    print(f'successful payment done, user_id:{user_id}')
     
 
 def handle_failed_payment(intent, session:SessionDB):
