@@ -8,7 +8,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from models.users import Users
 from routers.users import get_password_hash, process_phone_number
-from config import FIRST_ADMIN_PASSWORD, FIRST_ADMIN_EMAIL, FIRST_ADMIN_PHONE_NUMBER, FIRST_ADMIN_PHONE_NUMBER_REGION, RELEASE_EXPIRED_RESERVATIONS_TIME, ORIGIN_1, ORIGIN_2, ALLOWED_HOST_1, ALLOWED_HOST_2, CHECKOUT_SESSION_EXPIRATION_TIME
+from config import FIRST_ADMIN_PASSWORD, FIRST_ADMIN_EMAIL, FIRST_ADMIN_PHONE_NUMBER, FIRST_ADMIN_PHONE_NUMBER_REGION, ORIGIN_1, ORIGIN_2, ALLOWED_HOST_1, ALLOWED_HOST_2, CHECKOUT_SESSION_EXPIRATION_TIME
 from fastapi_csrf_protect import CsrfProtect
 from schemas.security import CsrfSettings
 from fastapi_csrf_protect.exceptions import CsrfProtectError
