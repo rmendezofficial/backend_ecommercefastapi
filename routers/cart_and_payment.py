@@ -336,7 +336,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
         #refund and if oversold and expired session
         if linked_checkout_session.status!='active': 
             order_db.oversold=True
-            if payment_intent['amount_received'] > payment_intent["charges"]["data"][0]["refunds"]["data"]:
+            if payment_intent['amount_received'] > payment_intent['amount_refunded']:
                 #create refund request
                 create_refund(session,user_id, payment_intent, linked_checkout_session.id, order_db.id)
                 print(f'A refund petition was created')
