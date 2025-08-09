@@ -66,7 +66,7 @@ def create_reservations(session:SessionDB, cart_products:list, user_id:int, chec
         existing_product=session.query(Products).filter(Products.id==cart_product.product_id).first()
         if not existing_product:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The product does not exist')
-        existing_reservation_db=session.query(Reservations).filter(Reservations.user_id==user_id, Reservations.product_id==cart_product.product_id, Reservations.status=='pending', checkout_session_id=checkout_session_id).first()
+        existing_reservation_db=session.query(Reservations).filter(Reservations.user_id==user_id, Reservations.product_id==cart_product.product_id, Reservations.status=='pending', Reservations.checkout_session_id==checkout_session_id).first()
         if existing_reservation_db:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='A reservation was already created. Try again later')
     try:
