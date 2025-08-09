@@ -12,4 +12,4 @@ class Reservations(Base):
     units=Column(Integer,nullable=False)
     expires_at=Column(DateTime)
     status=Column(String(200),default='pending')
-    checkout_session_id=Column(Text, nullable=False)
+    checkout_session_id=Column(Integer,ForeignKey('checkoutsessions.id'),nullable=False)
