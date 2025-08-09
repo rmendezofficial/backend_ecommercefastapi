@@ -312,7 +312,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     try:
         #create shipping address
         address=stripe_session_data['customer_details']['address']
-        shipping_address_db=ShippingAddresses(user_id=user_id, address_line1=address['line1'], address_line2=address['line2'], city=address['city'], state=address['state'], country=address['country'], zipcode=address['postal_code'])
+        shipping_address_db=ShippingAddresses(user_id=user_id, address_line1=address['line1'], address_line2=address['line2'], city=address['city'], state=address['state'], country=address['country'], zip_code=address['postal_code'])
         session.add(shipping_address_db)
         session.flush()
         #create order
