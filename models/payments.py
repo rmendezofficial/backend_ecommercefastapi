@@ -30,8 +30,8 @@ class Payments(Base):
     currency=Column(String(200),nullable=False)
     tax_details=Column(Numeric(10,2),nullable=False)
     payment_intent_id=Column(String(200),nullable=False)
-    charge_id=Column(String(200),nullable=False)
-    receipt_url=Column(Text,nullable=False)
+    charge_id=Column(String(200),nullable=True)
+    receipt_url=Column(Text,nullable=True)
 
 class CheckoutStatus(str, PyEnum):
     expired='expired'

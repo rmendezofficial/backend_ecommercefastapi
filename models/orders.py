@@ -25,6 +25,7 @@ class Orders(Base):
     status=Column(Enum(OrderStatus), default=OrderStatus.pending,index=True, nullable=False)
     shipping_addresses_id=Column(Integer,ForeignKey('shipping_addresses.id'),nullable=False)
     oversold=Column(Boolean, default=False, nullable=False)
+    checkout_session_id=Column(Integer,ForeignKey('checkoutsessions.id'),nullable=False)
     
 class OrderItems(Base):
     __tablename__='order_items'

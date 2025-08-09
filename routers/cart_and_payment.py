@@ -83,10 +83,7 @@ def delete_reservation(session:SessionDB, product_id:int, units: int, user_id:in
         session.delete(existing_reservation_db)
         
 def expire_checkout_session(session:SessionDB, user_id:int, checkout_session_id:int):
-    existing_checkout_session=session.query(CheckOutSessions).filter(CheckOutSessions.user_id==user_id, CheckOutSessions.id==checkout_session_id).first()
-    if not existing_checkout_session:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={'message':'The checkout session was not found'})
-    
+    existing_checkout_session=session.query(CheckOutSessions).filter(CheckOutSessions.user_id==user_id, CheckOutSessions.id==checkout_session_id).first()    
     existing_checkout_session.status='expired'
     
 
@@ -306,8 +303,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     user_id=user.id
     linked_checkout_session=session.query(CheckOutSessions).filter(CheckOutSessions.session_id==stripe_session_data['id']).first()
     payment_intent = stripe.PaymentIntent.retrieve(stripe_session_data['payment_intent'])
-    charges_data = payment_intent.get('charges', {}).get('data', [])
-    charge = charges_data[0] if charges_data else None
+    
     try:
         #create shipping address
         address=stripe_session_data['customer_details']['address']
@@ -315,7 +311,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
         session.add(shipping_address_db)
         session.flush()
         #create order
-        order_db=Orders(user_id=user_id, total_amount=stripe_session_data['amount_total'], shipping_addresses_id=shipping_address_db.id)
+        order_db=Orders(user_id=user_id, total_amount=stripe_session_data['amount_total'], shipping_addresses_id=shipping_address_db.id, checkout_session_id=linked_checkout_session.id)
         session.add(order_db)
         session.flush()
         #create order items
@@ -325,7 +321,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
             order_product_db=OrderItems(order_id=order_db.id, product_id=cart_product_snapshoot.product_id, units=cart_product_snapshoot.units, price_at_purchase=cart_product_snapshoot.price_at_purchase)
             session.add(order_product_db)
         #create payment
-        payment_db=Payments(order_id=order_db.id, user_id=user_id, payment_method=PaymentMethod.stripe, status=PaymentStatus.paid, stripe_session_id=stripe_session_data['id'], stripe_customer_id=customer_id, currency=stripe_session_data['currency'], tax_details=stripe_session_data['total_details'].get("amount_tax", 0), payment_intent_id=payment_intent['id'], charge_id=charge['id'] if charge else None, receipt_url=charge['receipt_url'] if charge else None) #there shouldnt be none here
+        payment_db=Payments(order_id=order_db.id, user_id=user_id, payment_method=PaymentMethod.stripe, status=PaymentStatus.paid, stripe_session_id=stripe_session_data['id'], stripe_customer_id=customer_id, currency=stripe_session_data['currency'], tax_details=stripe_session_data['total_details'].get("amount_tax", 0), payment_intent_id=payment_intent['id']) 
         session.add(payment_db)
         #modify stock and release reservations
         for product in cart_products_snapshoot_db:
@@ -351,6 +347,17 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
         print(f'An error occured while handling the checkout success: {e}')
         
         
+def handle_charge_succeess(charge_data,session:SessionDB):
+    payment_intent_id = charge_data['payment_intent']
+    payment_db = session.query(Payments).filter(Payments.payment_intent_id == payment_intent_id).first()
+    try:
+        payment_db.charge_id=charge_data['id']
+        payment_db.receipt_url=charge_data['receipt_url']
+        print(f'PAYMENT_DB:{payment_db}')
+        session.commit()
+    except SQLAlchemyError as e:
+        session.rollback()
+        print(f'An error occured while handling the charge success: {e}')
     
        
     
@@ -410,6 +417,11 @@ async def stripe_webhook(
     if event['type'] == 'checkout.session.completed':
         stripe_session_data = event['data']['object']
         handle_checkout_success(stripe_session_data,session)
+        
+    elif event['type'] == 'charge.succeeded':
+        # This is the new block for a successful charge
+        charge_data = event['data']['object']
+        handle_charge_succeess(charge_data, session)
 
     elif event['type'] == 'payment_intent.payment_failed':
         intent = event['data']['object']
