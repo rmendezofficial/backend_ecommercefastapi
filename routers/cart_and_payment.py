@@ -316,7 +316,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
         session.add(shipping_address_db)
         session.flush()
         #create order
-        order_db=Orders(user_id=user_id, total_amount=stripe_session_data['amount_total'], shipping_address_id=shipping_address_db.id)
+        order_db=Orders(user_id=user_id, total_amount=stripe_session_data['amount_total'], shipping_addresses_id=shipping_address_db.id)
         session.add(order_db)
         session.flush()
         #create order items
