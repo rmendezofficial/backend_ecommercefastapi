@@ -77,11 +77,10 @@ def delete_reservation(session:SessionDB, product_id:int, units: int, user_id:in
     if not existing_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The product does not exist')
     existing_reservation_db=session.query(Reservations).filter(Reservations.user_id==user_id, Reservations.product_id==product_id, Reservations.status=='pending', Reservations.checkout_session_id==checkout_session_id).first()
-    if not existing_reservation_db:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The reservation does not exist')
-    existing_product.reserve_stock-=units
-    existing_product.available_stock+=units    
-    session.delete(existing_reservation_db)
+    if existing_reservation_db:
+        existing_product.reserve_stock-=units
+        existing_product.available_stock+=units    
+        session.delete(existing_reservation_db)
         
 def expire_checkout_session(session:SessionDB, user_id:int, checkout_session_id:int):
     existing_checkout_session=session.query(CheckOutSessions).filter(CheckOutSessions.user_id==user_id, CheckOutSessions.id==checkout_session_id).first()
@@ -326,7 +325,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
             order_product_db=OrderItems(order_id=order_db.id, product_id=cart_product_snapshoot.product_id, units=cart_product_snapshoot.units, price_at_purchase=cart_product_snapshoot.price_at_purchase)
             session.add(order_product_db)
         #create payment
-        payment_db=Payments(order_id=order_db.id, user_id=user_id, payment_method=PaymentMethod.stripe, status=PaymentStatus.paid, stripe_session_id=stripe_session_data['id'], stripe_customer_id=customer_id, currency=stripe_session_data['currency'], tax_details=stripe_session_data['total_details'].get("amount_tax", 0), payment_intent_id=payment_intent, charge_id=charge['id'] if charge else None, receipt_url=charge['receipt_url'] if charge else None) #there shouldnt be none here
+        payment_db=Payments(order_id=order_db.id, user_id=user_id, payment_method=PaymentMethod.stripe, status=PaymentStatus.paid, stripe_session_id=stripe_session_data['id'], stripe_customer_id=customer_id, currency=stripe_session_data['currency'], tax_details=stripe_session_data['total_details'].get("amount_tax", 0), payment_intent_id=payment_intent['id'], charge_id=charge['id'] if charge else None, receipt_url=charge['receipt_url'] if charge else None) #there shouldnt be none here
         session.add(payment_db)
         #modify stock and release reservations
         for product in cart_products_snapshoot_db:
@@ -339,7 +338,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
             order_db.oversold=True
             if payment_intent['amount_received'] > payment_intent['amount_refunded']:
                 #create refund request
-                create_refund(session,user_id, payment_intent, linked_checkout_session.id, order_db.id)
+                create_refund(session,user_id, payment_intent['id'], linked_checkout_session.id, order_db.id)
                 print(f'A refund petition was created')
         else:
             #delete cart products if checkout is active
