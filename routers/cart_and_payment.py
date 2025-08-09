@@ -377,22 +377,22 @@ def handle_charge_succeess(charge_data,session:SessionDB):
         if payment_db:
             payment_db.charge_id=charge_data['id']
             payment_db.receipt_url=charge_data['receipt_url']
-            print(f'PAYMENT_DB_CHARGE:{payment_db.user_id}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.payment_method}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.status}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.created_at}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.stripe_session_id}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.stripe_customer_id}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.currency}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.tax_details}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.payment_intent_id}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.charge_id}')
-            print(f'PAYMENT_DB_CHARGE:{payment_db.receipt_url}')
             session.commit()
         else:
             payment_db=Payments(charge_id=charge_data['id'], receipt_url=charge_data['receipt_url']) 
             session.add(payment_db)
             session.commit()
+        print(f'PAYMENT_DB_CHARGE:{payment_db.user_id}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.payment_method}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.status}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.created_at}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.stripe_session_id}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.stripe_customer_id}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.currency}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.tax_details}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.payment_intent_id}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.charge_id}')
+        print(f'PAYMENT_DB_CHARGE:{payment_db.receipt_url}')
     except SQLAlchemyError as e:
         session.rollback()
         print(f'An error occured while handling the charge success: {e}')
