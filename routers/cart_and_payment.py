@@ -321,8 +321,21 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
             order_product_db=OrderItems(order_id=order_db.id, product_id=cart_product_snapshoot.product_id, units=cart_product_snapshoot.units, price_at_purchase=cart_product_snapshoot.price_at_purchase)
             session.add(order_product_db)
         #create payment
-        payment_db=Payments(order_id=order_db.id, user_id=user_id, payment_method=PaymentMethod.stripe, status=PaymentStatus.paid, stripe_session_id=stripe_session_data['id'], stripe_customer_id=customer_id, currency=stripe_session_data['currency'], tax_details=stripe_session_data['total_details'].get("amount_tax", 0), payment_intent_id=payment_intent['id']) 
-        session.add(payment_db)
+        payment_db = session.query(Payments).filter(Payments.payment_intent_id == payment_intent['id']).first()
+        if payment_db:
+            payment_db.order_id=order_db.id
+            payment_db.user_id=user_id
+            payment_db.payment_method=PaymentMethod.stripe
+            payment_db.status=PaymentStatus.paid
+            payment_db.stripe_session_id=stripe_session_data['id']
+            payment_db.stripe_customer_id=customer_id
+            payment_db.currency=stripe_session_data['currency']
+            payment_db.tax_details=stripe_session_data['total_details'].get("amount_tax", 0)
+            payment_db.payment_intent_id=payment_intent['id']
+        else:    
+            payment_db=Payments(order_id=order_db.id, user_id=user_id, payment_method=PaymentMethod.stripe, status=PaymentStatus.paid, stripe_session_id=stripe_session_data['id'], stripe_customer_id=customer_id, currency=stripe_session_data['currency'], tax_details=stripe_session_data['total_details'].get("amount_tax", 0), payment_intent_id=payment_intent['id']) 
+            session.add(payment_db)
+        print(f'PAYMENT_DB:{payment_db}')
         #modify stock and release reservations
         for product in cart_products_snapshoot_db:
             delete_reservation(session, product.product_id, product.units, user_id, linked_checkout_session.id) 
@@ -351,10 +364,15 @@ def handle_charge_succeess(charge_data,session:SessionDB):
     payment_intent_id = charge_data['payment_intent']
     payment_db = session.query(Payments).filter(Payments.payment_intent_id == payment_intent_id).first()
     try:
-        payment_db.charge_id=charge_data['id']
-        payment_db.receipt_url=charge_data['receipt_url']
-        print(f'PAYMENT_DB:{payment_db}')
-        session.commit()
+        if payment_db:
+            payment_db.charge_id=charge_data['id']
+            payment_db.receipt_url=charge_data['receipt_url']
+            print(f'PAYMENT_DB:{payment_db}')
+            session.commit()
+        else:
+            payment_db=Payments(charge_id=charge_data['id'], receipt_url=charge_data['receipt_url']) 
+            session.add(payment_db)
+            session.commit()
     except SQLAlchemyError as e:
         session.rollback()
         print(f'An error occured while handling the charge success: {e}')
