@@ -28,7 +28,7 @@ origins = [
     ORIGIN_2, 
 ]
 
-'''def release_expired_checkout_sessions(): #set them to expired rather than deleting, and do the reconcilliation process as well
+'''def release_expired_checkout_sessions(): #set them to expired rather than deleting and delete the cart snapshoots associated with expired checkout sessions, and do the reconcilliation process as well, also do not delete nor set to expire if there are transactions ongoing
     db=SessionLocal()
     now=datetime.now(timezone.utc)
     try:

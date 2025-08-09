@@ -31,7 +31,7 @@ class Products(Base):
     available_stock=Column(Integer, nullable=False)
     
     __table_args__ = (
-        CheckConstraint('stock >= 0', name='check_stock_positive'),
+        #CheckConstraint('stock >= 0', name='check_stock_positive'), because if there are oversold overs, it can exist
         CheckConstraint('reserve_stock >= 0', name='check_reserve_stock_positive'),
         CheckConstraint('available_stock >= 0', name='check_available_stock_positive'),
         CheckConstraint('price >= 0', name='check_price_positive'),

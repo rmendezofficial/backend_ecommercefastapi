@@ -24,6 +24,7 @@ class Orders(Base):
     created_at=Column(DateTime,server_default=func.now())
     status=Column(Enum(OrderStatus), default=OrderStatus.pending,index=True, nullable=False)
     shipping_addresses_id=Column(Integer,ForeignKey('shipping_addresses.id'),nullable=False)
+    oversold=Column(Boolean, default=False, nullable=False)
     
 class OrderItems(Base):
     __tablename__='order_items'

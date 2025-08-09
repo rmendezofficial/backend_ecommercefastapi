@@ -21,3 +21,4 @@ class Refunds(Base):
     created_at=Column(DateTime,server_default=func.now())
     checkout_session_id=Column(Integer,ForeignKey('checkoutsessions.id'),nullable=False)
     status=Column(Enum(RefundStatus), default=RefundStatus.pending_accidental, nullable=False)
+    order_id=Column(Integer,ForeignKey('orders.id'),nullable=False)
