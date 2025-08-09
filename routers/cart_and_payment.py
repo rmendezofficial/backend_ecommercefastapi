@@ -307,7 +307,8 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     user_id=user.id
     linked_checkout_session=session.query(CheckOutSessions).filter(CheckOutSessions.session_id==stripe_session_data['id']).first()
     payment_intent = stripe.PaymentIntent.retrieve(stripe_session_data['payment_intent'])
-    charge=payment_intent["charges"]["data"][0]  
+    charges_data = payment_intent.get('charges', {}).get('data', [])
+    charge = charges_data[0] if charges_data else None
     try:
         #create shipping address
         address=stripe_session_data['customer_details']['address']
@@ -325,7 +326,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
             order_product_db=OrderItems(order_id=order_db.id, product_id=cart_product_snapshoot.product_id, units=cart_product_snapshoot.units, price_at_purchase=cart_product_snapshoot.price_at_purchase)
             session.add(order_product_db)
         #create payment
-        payment_db=Payments(order_id=order_db.id, user_id=user_id, payment_method=PaymentMethod.stripe, status=PaymentStatus.paid, stripe_session_id=stripe_session_data['id'], stripe_customer_id=customer_id, currency=stripe_session_data['currency'], tax_details=stripe_session_data['total_details'].get("amount_tax", 0), payment_intent_id=payment_intent, charge_id=charge['id'], receipt_url=charge['receipt_url'])
+        payment_db=Payments(order_id=order_db.id, user_id=user_id, payment_method=PaymentMethod.stripe, status=PaymentStatus.paid, stripe_session_id=stripe_session_data['id'], stripe_customer_id=customer_id, currency=stripe_session_data['currency'], tax_details=stripe_session_data['total_details'].get("amount_tax", 0), payment_intent_id=payment_intent, charge_id=charge['id'] if charge else None, receipt_url=charge['receipt_url'] if charge else None) #there shouldnt be none here
         session.add(payment_db)
         #modify stock and release reservations
         for product in cart_products_snapshoot_db:
