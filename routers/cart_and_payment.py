@@ -86,22 +86,37 @@ def create_reservations(session:SessionDB, cart_products:list, user_id:int, chec
     
             
          
-def delete_reservation(session:SessionDB, product_id:int, units: int, user_id:int, checkout_session_id:int):
-    session.query(Products).filter(Products.id == product_id).update(
+def delete_reservation(session: SessionDB, product_id: int, units: int, user_id: int, checkout_session_id: int):
+    # Atomic update: only subtract if reservation exists
+    updated_rows = session.query(Products).filter(
+        Products.id == product_id,
+        session.query(Reservations.id).filter(
+            Reservations.user_id == user_id,
+            Reservations.product_id == product_id,
+            Reservations.status == 'pending',
+            Reservations.checkout_session_id == checkout_session_id
+        ).exists()
+    ).update(
         {
             Products.reserve_stock: Products.reserve_stock - units,
             Products.available_stock: Products.available_stock + units
         },
         synchronize_session=False
     )
-    # Delete the reservation record
+
+    if updated_rows == 0:
+        # No reservation found, nothing to do
+        return
+
+    # Delete reservation in the same transaction
     session.query(Reservations).filter(
-        Reservations.user_id == user_id, 
-        Reservations.product_id == product_id, 
-        Reservations.status == 'pending', 
+        Reservations.user_id == user_id,
+        Reservations.product_id == product_id,
+        Reservations.status == 'pending',
         Reservations.checkout_session_id == checkout_session_id
     ).delete(synchronize_session=False)
-        
+
+         
 def expire_checkout_session(session:SessionDB, user_id:int, checkout_session_id:int):
     session.query(CheckOutSessions).filter(
         CheckOutSessions.user_id == user_id, 
