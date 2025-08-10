@@ -47,7 +47,7 @@ class ProductUpdate(BaseModel):
     title:Annotated[str|None,constr(max_length=200)]=None
     description:str|None=None
     price:Annotated[Decimal|None, Field(ge=0)]=None
-    stock:Annotated[int|None, Field(ge=0)]=None    
+    stock:int|None=None    
     category:Annotated[str|None,constr(max_length=50)]=None
     discount_percentage:Annotated[Decimal|None, Field(ge=0)]=None
     weight:Annotated[float|None, Field(ge=0)]=None
