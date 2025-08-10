@@ -261,9 +261,9 @@ async def delete_reservations(
                 CheckOutSessions.status == 'active'
             ).update({'status': 'expired'}, synchronize_session=False)
             
-    except SQLAlchemyError:
+    except SQLAlchemyError as e:
         session.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while deleting reservations') 
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'An error occurred while deleting reservations {e}') 
 
 
 @router.post('/create_checkout_session',tags=['payment'])
