@@ -22,6 +22,7 @@ from models.users import ShippingAddresses, Users
 from models.payments import Payments, PaymentMethod, PaymentStatus, CheckOutSessions
 from models.refunds import Refunds
 import pytz 
+from sqlalchemy import update, select, delete
 
 router=APIRouter(prefix='/payment')
 
@@ -29,7 +30,6 @@ utc=pytz.UTC
 stripe.api_key=STRIPE_SECRET_KEY
 
 def create_cart_snapshoot(session:SessionDB, product_id:int, user_id:int, units:int, checkout_session_id:int):
-    
     product_db=session.query(Products).filter(Products.id==product_id).first()
     cart_snapshoot_db=CartSnapshoots(product_id=product_id, user_id=user_id, units=units, checkout_session_id=checkout_session_id, price_at_purchase=product_db.price)
     session.add(cart_snapshoot_db)
@@ -57,34 +57,56 @@ def create_reservations(session:SessionDB, cart_products:list, user_id:int, chec
         if existing_reservation_db:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='A reservation was already created. Try again later')
     
-        if existing_product_db.available_stock>=cart_product.units:
-            existing_product_db.reserve_stock+=cart_product.units
-            existing_product_db.available_stock-=cart_product.units
-                
-            now=datetime.now(timezone.utc)
-            expiration=now+timedelta(minutes=CREATE_RESERVATION_EXPIRATION_TIME)
-                
-            reservation_db=Reservations(product_id=existing_product_db.id, user_id=user_id, units=cart_product.units, expires_at=expiration, status='pending', checkout_session_id=checkout_session_id)
-            session.add(reservation_db)
+        result = session.query(Products).filter(
+            Products.id == cart_product.product_id,
+            Products.available_stock >= cart_product.units
+        ).update(
+            {
+                Products.reserve_stock: Products.reserve_stock + cart_product.units,
+                Products.available_stock: Products.available_stock - cart_product.units
+            },
+            synchronize_session=False  # Important for a reliable atomic update
+        )
+        
+        if result == 0:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f'Not enough stock for product ID: {cart_product.product_id}')
+        
+        now = datetime.now(timezone.utc)
+        expiration = now + timedelta(minutes=CREATE_RESERVATION_EXPIRATION_TIME)
+        reservation_db = Reservations(
+            product_id=cart_product.product_id, 
+            user_id=user_id, 
+            units=cart_product.units, 
+            expires_at=expiration, 
+            status='pending', 
+            checkout_session_id=checkout_session_id
+        )
+        session.add(reservation_db)
             
-        else:
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='Not enough stock')
     
             
          
 def delete_reservation(session:SessionDB, product_id:int, units: int, user_id:int, checkout_session_id:int):
-    existing_product=session.query(Products).filter(Products.id==product_id).first()
-    if not existing_product:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The product does not exist')
-    existing_reservation_db=session.query(Reservations).filter(Reservations.user_id==user_id, Reservations.product_id==product_id, Reservations.status=='pending', Reservations.checkout_session_id==checkout_session_id).first()
-    if existing_reservation_db:
-        existing_product.reserve_stock-=units
-        existing_product.available_stock+=units    
-        session.delete(existing_reservation_db)
+    session.query(Products).filter(Products.id == product_id).update(
+        {
+            Products.reserve_stock: Products.reserve_stock - units,
+            Products.available_stock: Products.available_stock + units
+        },
+        synchronize_session=False
+    )
+    # Delete the reservation record
+    session.query(Reservations).filter(
+        Reservations.user_id == user_id, 
+        Reservations.product_id == product_id, 
+        Reservations.status == 'pending', 
+        Reservations.checkout_session_id == checkout_session_id
+    ).delete(synchronize_session=False)
         
 def expire_checkout_session(session:SessionDB, user_id:int, checkout_session_id:int):
-    existing_checkout_session=session.query(CheckOutSessions).filter(CheckOutSessions.user_id==user_id, CheckOutSessions.id==checkout_session_id).first()    
-    existing_checkout_session.status='expired'
+    session.query(CheckOutSessions).filter(
+        CheckOutSessions.user_id == user_id, 
+        CheckOutSessions.id == checkout_session_id
+    ).update({'status': 'expired'}, synchronize_session=False)
     
 
 @router.get('/get_cart_products',tags=['cart'])
@@ -200,17 +222,45 @@ async def delete_reservations(
 ):
     await csrf_protect.validate_csrf(request)
     try:
-        checkout_sessions_db=session.query(CheckOutSessions).filter(CheckOutSessions.user_id==user.id).all()
-        for checkout_session in checkout_sessions_db:
-            checkout_session.status='expired'
-        reservations_db=session.query(Reservations).filter(Reservations.user_id==user.id).all()
-        for reservation in reservations_db: 
-            existing_product=session.query(Products).filter(Products.id==reservation.product_id).first()
-            existing_product.reserve_stock-=reservation.units
-            existing_product.available_stock+=reservation.units
-            session.delete(reservation)
-        session.commit()
-        
+        # The `with session.begin()` block starts a transaction.
+        # All queries within this block are treated as a single, atomic unit.
+        with session.begin():
+            # 1. First, lock the associated product rows.
+            # We fetch all reservations for the user and join them with the Products table.
+            # The `with_for_update()` call locks the product rows for this transaction.
+            reservations_with_products = session.query(
+                Reservations,
+                Products
+            ).join(
+                Products,
+                Reservations.product_id == Products.id
+            ).filter(
+                Reservations.user_id == user.id
+            ).with_for_update().all()
+            
+            # If there are no reservations, there's nothing to do
+            if not reservations_with_products:
+                return
+
+            # 2. Safely update the product stock for each reservation.
+            # The product rows are already locked, preventing other transactions
+            # from interfering with these updates.
+            for reservation, product in reservations_with_products:
+                product.reserve_stock -= reservation.units
+                product.available_stock += reservation.units
+            
+            # 3. Now that all product stock is safely updated,
+            # delete all reservations in a single, efficient command.
+            session.query(Reservations).filter(
+                Reservations.user_id == user.id
+            ).delete(synchronize_session=False)
+            
+            # 4. Finally, update the status of the checkout sessions.
+            session.query(CheckOutSessions).filter(
+                CheckOutSessions.user_id == user.id,
+                CheckOutSessions.status == 'active'
+            ).update({'status': 'expired'}, synchronize_session=False)
+            
     except SQLAlchemyError:
         session.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while deleting reservations') 
@@ -303,7 +353,10 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
     user_id=user.id
     linked_checkout_session=session.query(CheckOutSessions).filter(CheckOutSessions.session_id==stripe_session_data['id']).first()
     payment_intent = stripe.PaymentIntent.retrieve(stripe_session_data['payment_intent'])
-    
+    existing_order = session.query(Orders).filter(Orders.checkout_session_id == linked_checkout_session.id).first()
+    if existing_order:
+        print("Webhook received for an already processed checkout session. Ignoring.")
+        return
     try:
         #create shipping address
         address=stripe_session_data['customer_details']['address']
@@ -349,9 +402,7 @@ def handle_checkout_success(stripe_session_data,session:SessionDB):
         #modify stock and release reservations
         for product in cart_products_snapshoot_db:
             delete_reservation(session, product.product_id, product.units, user_id, linked_checkout_session.id) 
-            product_db=session.query(Products).filter(Products.id==product.product_id).first()
-            product_db.stock-=product.units
-            product_db.available_stock-=product.units
+            session.query(Products).filter(Products.id == product.product_id).update({Products.stock: Products.stock - product.units, Products.available_stock: Products.available_stock - product.units},synchronize_session=False)
         #refund and if oversold and expired session
         if linked_checkout_session.status!='active': 
             order_db.oversold=True
