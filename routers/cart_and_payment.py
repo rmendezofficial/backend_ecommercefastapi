@@ -694,7 +694,7 @@ async def get_cart_snapshoots_admins(
                 'units':cart_snapshoot.units,
                 'created_at':cart_snapshoot.created_at.isoformat(),
                 'checkout_session_id':cart_snapshoot.checkout_session_id,
-                'price_at_purchase':cart_snapshoot.price_at_purchase
+                'price_at_purchase':str(cart_snapshoot.price_at_purchase) if cart_snapshoot.price_at_purchase is not None else None
                 
             }
             cart_snapshoots_found.append(cart_snapshoot_object)
