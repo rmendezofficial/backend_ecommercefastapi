@@ -604,7 +604,7 @@ async def get_carts_admins(
                 'product_id':cart.product_id,
                 'user_id':cart.user_id,
                 'units':cart.units,
-                'created_at':cart.created_at
+                'created_at':cart.created_at.isoformat()
             }
             carts_found.append(cart_object)
                 
