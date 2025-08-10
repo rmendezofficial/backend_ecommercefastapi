@@ -88,9 +88,9 @@ async def update_product(
     existing_product=session.query(Products).filter(Products.id==product_id).first()
     if not existing_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail='Product does not exist')
-    existing_reservation=session.query(Reservations).filter(Reservations.product_id==product_id).first()
-    if existing_reservation:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail='Product cannot be modified because there are reservations of the product')
+    #existing_reservation=session.query(Reservations).filter(Reservations.product_id==product_id).first()
+    #if existing_reservation:
+    #    raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail='Product cannot be modified because there are reservations of the product')
     try: 
         product_dict=product.model_dump(exclude_unset=True)
         
@@ -110,11 +110,14 @@ async def update_product(
                 for product_image in product_dict['images']:
                     new_image=product_images(product_id=product_id,image_url=product_image['image_url'],is_main=product_image['is_main'])
                     session.add(new_image)
-            else:
-                if key=='category':
+                    
+            elif key=='category':
                     category_id=get_or_create_category(session,value)
                     setattr(existing_product,'category_id',category_id)         
-                else:
+            elif key=='stock':
+                    existing_product.stock+=value
+                    existing_product.available_stock+=value
+            else:
                     setattr(existing_product, key, value)
         session.commit()
         session.refresh(existing_product)
@@ -162,9 +165,9 @@ async def delete_product(
     existing_product=session.query(Products).filter(Products.id==product_id).first()
     if not existing_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail='Product does not exist')
-    existing_reservation=session.query(Reservations).filter(Reservations.product_id==product_id).first()
-    if existing_reservation:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail='Product cannot be modified because there are reservations of the product')
+    #existing_reservation=session.query(Reservations).filter(Reservations.product_id==product_id).first()
+    #if existing_reservation:
+    #    raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail='Product cannot be modified because there are reservations of the product')
     try:
         existing_product.status='deleted'
         session.commit()
