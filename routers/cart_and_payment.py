@@ -8,7 +8,7 @@ from dependencies.database import SessionDB
 from fastapi_csrf_protect import CsrfProtect
 from routers.users import get_current_active_user, is_admin
 from schemas.users import User
-from schemas.cart_and_payment import CartProduct, CartProductsCheckout, CartSortBy, CartInventoryParams
+from schemas.cart_and_payment import CartProduct, CartProductsCheckout, CartSortBy, CartInventoryParams, CartSnapshootInventoryParams, CartSnapshootSortBy
 from models.products import Products, product_images
 from models.categories import Categories
 from models.cart import Cart, CartSnapshoots
@@ -609,5 +609,96 @@ async def get_carts_admins(
             carts_found.append(cart_object)
                 
         return JSONResponse(status_code=status.HTTP_200_OK,content={'carts':carts_found, 'page':page,'limit':limit})
+    except SQLAlchemyError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail='An error occurred while getting the carts.')
+
+
+
+@router.post('/get_cart_snapshoots_admins',tags=['cart_snapshoots_admins'])
+async def get_cart_snapshoots_admins(
+    request:Request,
+    admin: Annotated[bool, Depends(is_admin)],
+    csrf_protect:Annotated[CsrfProtect, Depends()],
+    x_csrf_token:Annotated[str,Header(...,description='"X-CSRF-Token')],
+    session:SessionDB,
+    cart_snapshoots_params: CartSnapshootInventoryParams,
+    page:int|None=1,
+    limit:int|None=10,
+    )->JSONResponse:
+    await csrf_protect.validate_csrf(request)
+    if not admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail='Not enough permissions')
+    try:
+        query=session.query(CartSnapshoots)
+        
+        cart_snapshoots_found=[]
+     
+        if cart_snapshoots_params.product_id:
+            query=query.filter(CartSnapshoots.product_id==cart_snapshoots_params.product_id)
+            
+        if cart_snapshoots_params.user_id:
+            query=query.filter(CartSnapshoots.user_id==cart_snapshoots_params.user_id)
+                
+        
+        if cart_snapshoots_params.min_units is not None:
+            query=query.filter(CartSnapshoots.units>=cart_snapshoots_params.min_units)
+            
+        if cart_snapshoots_params.max_units is not None:
+            query=query.filter(CartSnapshoots.units<=cart_snapshoots_params.max_units)
+            
+   
+        if cart_snapshoots_params.date_after is not None:
+            query=query.filter(CartSnapshoots.created_at>=cart_snapshoots_params.date_after)
+            
+        if cart_snapshoots_params.date_before is not None:
+            query=query.filter(CartSnapshoots.created_at<=cart_snapshoots_params.date_before)
+            
+        if cart_snapshoots_params.checkout_session_id:
+            query=query.filter(CartSnapshoots.checkout_session_id==cart_snapshoots_params.checkout_session_id)
+        
+        if cart_snapshoots_params.min_price_at_purchase is not None:
+            query=query.filter(CartSnapshoots.price_at_purchase>=cart_snapshoots_params.min_price_at_purchase)
+            
+        if cart_snapshoots_params.max_price_at_purchase is not None:
+            query=query.filter(CartSnapshoots.price_at_purchase<=cart_snapshoots_params.max_price_at_purchase)
+            
+            
+           
+        if cart_snapshoots_params.sort_by==CartSnapshootSortBy.units_asc:
+            query=query.order_by(CartSnapshoots.units.asc())
+            
+        elif cart_snapshoots_params.sort_by==CartSnapshootSortBy.units_desc:
+            query=query.order_by(CartSnapshoots.units.desc())
+            
+        elif cart_snapshoots_params.sort_by==CartSnapshootSortBy.date_asc:
+            query=query.order_by(CartSnapshoots.created_at.asc())
+            
+        elif cart_snapshoots_params.sort_by==CartSnapshootSortBy.date_desc:
+            query=query.order_by(CartSnapshoots.created_at.desc()) 
+            
+        elif cart_snapshoots_params.sort_by==CartSnapshootSortBy.price_at_purchase_asc:
+            query=query.order_by(CartSnapshoots.price_at_purchase.asc()) 
+        
+        elif cart_snapshoots_params.sort_by==CartSnapshootSortBy.price_at_purchase_desc:
+            query=query.order_by(CartSnapshoots.price_at_purchase.desc())  
+        
+        offset=(page-1)*limit
+        query=query.offset(offset).limit(limit)    
+        
+        cart_snapshoots=query.all()
+        for cart_snapshoot in cart_snapshoots:
+            cart_snapshoot_object={
+                'id':cart_snapshoot.id,
+                'product_id':cart_snapshoot.product_id,
+                'user_id':cart_snapshoot.user_id,
+                'units':cart_snapshoot.units,
+                'created_at':cart_snapshoot.created_at.isoformat(),
+                'checkout_session_id':cart_snapshoot.checkout_session_id,
+                'price_at_purchase':cart_snapshoot.price_at_purchase
+                
+            }
+            cart_snapshoots_found.append(cart_snapshoot_object)
+                
+        return JSONResponse(status_code=status.HTTP_200_OK,content={'carts':cart_snapshoots_found, 'page':page,'limit':limit})
     except SQLAlchemyError:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail='An error occurred while getting the carts.')

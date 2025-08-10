@@ -43,4 +43,23 @@ class CartInventoryParams(BaseModel):
     date_after:datetime|None=None
     sort_by:CartSortBy|None=None
     
-    
+        
+class CartSnapshootSortBy(str,PyEnum):
+    units_asc='units_asc'
+    units_desc='units_desc'
+    date_asc='date_asc'
+    date_desc='date_desc'
+    price_at_purchase_asc='price_at_purchase_asc'
+    price_at_purchase_desc='price_at_purchase_desc'
+
+class CartSnapshootInventoryParams(BaseModel):
+    product_id:int|None=None
+    user_id:int|None=None
+    min_units:int|None=None
+    max_units:int|None=None
+    date_before:datetime|None=None
+    date_after:datetime|None=None
+    checkout_session_id:int|None=None
+    min_price_at_purchase:float|None=None
+    max_price_at_purchase:float|None=None
+    sort_by:CartSnapshootSortBy|None=None
