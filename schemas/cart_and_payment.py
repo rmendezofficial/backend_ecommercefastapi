@@ -28,4 +28,19 @@ class CartProductsCheckout(BaseModel):
     products:list[CartProductCheckout]
         
     
+class CartSortBy(str,PyEnum):
+    units_asc='units_asc'
+    units_desc='units_desc'
+    date_asc='date_asc'
+    date_desc='date_desc'
+
+class CartInventoryParams(BaseModel):
+    product_id:int|None=None
+    user_id:int|None=None
+    min_units:int|None=None
+    max_units:int|None=None
+    date_before:datetime|None=None
+    date_after:datetime|None=None
+    sort_by:CartSortBy|None=None
+    
     

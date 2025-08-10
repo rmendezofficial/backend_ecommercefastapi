@@ -6,9 +6,9 @@ import stripe
 from typing import Annotated
 from dependencies.database import SessionDB
 from fastapi_csrf_protect import CsrfProtect
-from routers.users import get_current_active_user
+from routers.users import get_current_active_user, is_admin
 from schemas.users import User
-from schemas.cart_and_payment import CartProduct, CartProductsCheckout
+from schemas.cart_and_payment import CartProduct, CartProductsCheckout, CartSortBy, CartInventoryParams
 from models.products import Products, product_images
 from models.categories import Categories
 from models.cart import Cart, CartSnapshoots
@@ -533,3 +533,71 @@ async def stripe_webhook(
     return {"status": "success"}
 
 
+
+
+
+
+
+
+#Cart admins
+
+@router.post('/get_carts_admins',tags=['carts_admins'])
+async def get_carts_admins(
+    request:Request,
+    admin: Annotated[bool, Depends(is_admin)],
+    csrf_protect:Annotated[CsrfProtect, Depends()],
+    x_csrf_token:Annotated[str,Header(...,description='"X-CSRF-Token')],
+    session:SessionDB,
+    carts_params: CartInventoryParams,
+    page:int|None=1,
+    limit:int|None=10,
+    )->JSONResponse:
+    await csrf_protect.validate_csrf(request)
+    if not admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail='Not enough permissions')
+    try:
+        query=session.query(Cart)
+        
+     
+        if carts_params.product_id:
+            query=query.filter(Cart.product_id==carts_params.product_id)
+            
+        if carts_params.user_id:
+            query=query.filter(Cart.user_id==carts_params.user_id)
+                
+        
+        if carts_params.min_units is not None:
+            query=query.filter(Cart.units>=carts_params.min_units)
+            
+        if carts_params.max_units is not None:
+            query=query.filter(Cart.units<=carts_params.max_units)
+            
+   
+        if carts_params.date_after is not None:
+            query=query.filter(Cart.created_at>=carts_params.date_after)
+            
+        if carts_params.date_before is not None:
+            query=query.filter(Cart.created_at<=carts_params.date_before)
+            
+            
+           
+        if carts_params.sort_by==CartSortBy.units_asc:
+            query=query.order_by(Cart.units.asc())
+            
+        elif carts_params.sort_by==CartSortBy.units_desc:
+            query=query.order_by(Cart.units.desc())
+            
+        elif carts_params.sort_by==CartSortBy.date_asc:
+            query=query.order_by(Cart.created_at.asc())
+            
+        elif carts_params.sort_by==CartSortBy.date_desc:
+            query=query.order_by(Cart.created_at.desc())  
+        
+        offset=(page-1)*limit
+        query=query.offset(offset).limit(limit)    
+        
+        carts=query.all()
+                
+        return JSONResponse(status_code=status.HTTP_200_OK,content={'carts':carts, 'page':page,'limit':limit})
+    except SQLAlchemyError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail='An error occurred while getting the carts.')
