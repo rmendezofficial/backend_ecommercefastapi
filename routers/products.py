@@ -446,7 +446,7 @@ async def get_products(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error ocurred while getting the products')
 
 @router.get('/get_product/{product_id}',tags=['products'])
-async def get_products(
+async def get_product(
     request:Request,
     session:SessionDB,
     product_id:int

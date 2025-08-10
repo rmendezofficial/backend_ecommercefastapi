@@ -558,6 +558,7 @@ async def get_carts_admins(
     try:
         query=session.query(Cart)
         
+        carts_found=[]
      
         if carts_params.product_id:
             query=query.filter(Cart.product_id==carts_params.product_id)
@@ -597,7 +598,16 @@ async def get_carts_admins(
         query=query.offset(offset).limit(limit)    
         
         carts=query.all()
+        for cart in carts:
+            cart_object={
+                'id':cart.id,
+                'product_id':cart.product_id,
+                'user_id':cart.user_id,
+                'units':cart.units,
+                'created_at':cart.created_at
+            }
+            carts_found.append(cart_object)
                 
-        return JSONResponse(status_code=status.HTTP_200_OK,content={'carts':carts, 'page':page,'limit':limit})
+        return JSONResponse(status_code=status.HTTP_200_OK,content={'carts':carts_found, 'page':page,'limit':limit})
     except SQLAlchemyError:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail='An error occurred while getting the carts.')
