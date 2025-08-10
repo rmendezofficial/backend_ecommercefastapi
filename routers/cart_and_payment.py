@@ -699,6 +699,6 @@ async def get_cart_snapshoots_admins(
             }
             cart_snapshoots_found.append(cart_snapshoot_object)
                 
-        return JSONResponse(status_code=status.HTTP_200_OK,content={'carts':cart_snapshoots_found, 'page':page,'limit':limit})
+        return JSONResponse(status_code=status.HTTP_200_OK,content={'carts_snapshoots':cart_snapshoots_found, 'page':page,'limit':limit})
     except SQLAlchemyError:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail='An error occurred while getting the carts.')
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,detail='An error occurred while getting the cart snapshoots.')
