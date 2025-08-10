@@ -211,7 +211,6 @@ async def delete_product(
         session.rollback()
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred while removing the product from the cart.")
   
-
 @router.post('/delete_reservations',tags=['payment'])
 async def delete_reservations(
     request:Request,
@@ -222,48 +221,38 @@ async def delete_reservations(
 ):
     await csrf_protect.validate_csrf(request)
     try:
-        # The `with session.begin()` block starts a transaction.
-        # All queries within this block are treated as a single, atomic unit.
-        with session.begin():
-            # 1. First, lock the associated product rows.
-            # We fetch all reservations for the user and join them with the Products table.
-            # The `with_for_update()` call locks the product rows for this transaction.
-            reservations_with_products = session.query(
-                Reservations,
-                Products
-            ).join(
-                Products,
-                Reservations.product_id == Products.id
-            ).filter(
-                Reservations.user_id == user.id
-            ).with_for_update().all()
-            
-            # If there are no reservations, there's nothing to do
-            if not reservations_with_products:
-                return
+        reservations_with_products = session.query(
+            Reservations,
+            Products
+        ).join(
+            Products,
+            Reservations.product_id == Products.id
+        ).filter(
+            Reservations.user_id == user.id
+        ).with_for_update().all()
 
-            # 2. Safely update the product stock for each reservation.
-            # The product rows are already locked, preventing other transactions
-            # from interfering with these updates.
-            for reservation, product in reservations_with_products:
-                product.reserve_stock -= reservation.units
-                product.available_stock += reservation.units
-            
-            # 3. Now that all product stock is safely updated,
-            # delete all reservations in a single, efficient command.
-            session.query(Reservations).filter(
-                Reservations.user_id == user.id
-            ).delete(synchronize_session=False)
-            
-            # 4. Finally, update the status of the checkout sessions.
-            session.query(CheckOutSessions).filter(
-                CheckOutSessions.user_id == user.id,
-                CheckOutSessions.status == 'active'
-            ).update({'status': 'expired'}, synchronize_session=False)
-            
+        if not reservations_with_products:
+            return
+
+        for reservation, product in reservations_with_products:
+            product.reserve_stock -= reservation.units
+            product.available_stock += reservation.units
+
+        session.query(Reservations).filter(
+            Reservations.user_id == user.id
+        ).delete(synchronize_session=False)
+
+        session.query(CheckOutSessions).filter(
+            CheckOutSessions.user_id == user.id,
+            CheckOutSessions.status == 'active'
+        ).update({'status': 'expired'}, synchronize_session=False)
+
+        session.commit()
+
     except SQLAlchemyError as e:
         session.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'An error occurred while deleting reservations {e}') 
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail=f'An error occurred while deleting reservations: {e}')
 
 
 @router.post('/create_checkout_session',tags=['payment'])
