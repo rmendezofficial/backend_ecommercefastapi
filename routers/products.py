@@ -59,7 +59,7 @@ async def create_product(
         
         category_id=get_or_create_category(session, product.category)
         
-        product_db=Products(title=product.title,description=product.description,price=product.price,stock=product.stock,category_id=category_id,discount_percentage=product.discount_percentage,weight=product.weight,height=product.height,length=product.length,width=product.width,status='active',taxcode=product.taxcode,reserve_stock=0,available_stock=product.stock)
+        product_db=Products(title=product.title,description=product.description,price=product.price,stock=product.stock,category_id=category_id,discount_percentage=product.discount_percentage,weight=product.weight,height=product.height,length=product.length,width=product.width,status='active',taxcode=product.taxcode,reserve_stock=0,available_stock=product.stock, average_stars=None, total_stars=None)
         session.add(product_db)
         session.commit()
         session.refresh(product_db)
@@ -144,7 +144,9 @@ async def update_product(
             'width':float(existing_product.width) if existing_product.width is not None else None,
             'images':existing_images_list,
             'status':existing_product.status,
-            'taxcode':existing_product.taxcode
+            'taxcode':existing_product.taxcode,
+            'average_stars':existing_product.average_stars,
+            'total_stars':existing_product.total_stars
             
         }
         return JSONResponse(status_code=status.HTTP_200_OK,content={'message':'Product successfully updated', 'updated_product':product_updated})
@@ -262,6 +264,18 @@ async def get_products_admins(
         if products_params.max_width is not None:
             query=query.filter(Products.width<=products_params.max_width)
             
+        if products_params.min_average_stars is not None:
+            query=query.filter(Products.average_stars>=products_params.min_average_stars)
+            
+        if products_params.max_average_stars is not None:
+            query=query.filter(Products.average_stars<=products_params.max_average_stars)
+            
+        if products_params.min_total_stars is not None:
+            query=query.filter(Products.total_stars>=products_params.min_total_stars)
+            
+        if products_params.max_total_stars is not None:
+            query=query.filter(Products.total_stars<=products_params.max_total_stars)
+            
         if products_params.sort_by==ProductsSortBy.price_asc:
             query=query.order_by(Products.price.asc())
             
@@ -310,6 +324,18 @@ async def get_products_admins(
         elif products_params.sort_by==ProductsSortBy.width_desc:
             query=query.order_by(Products.width.desc())
             
+        elif products_params.sort_by==ProductsSortBy.average_stars_asc:
+            query=query.order_by(Products.average_stars.asc())
+            
+        elif products_params.sort_by==ProductsSortBy.average_stars_desc:
+            query=query.order_by(Products.average_stars.desc())
+            
+        elif products_params.sort_by==ProductsSortBy.total_stars_asc:
+            query=query.order_by(Products.total_stars.asc())
+            
+        elif products_params.sort_by==ProductsSortBy.total_stars_desc:
+            query=query.order_by(Products.total_stars.desc())
+            
         offset=(page-1)*limit
         query=query.offset(offset).limit(limit)    
         
@@ -335,7 +361,9 @@ async def get_products_admins(
                     'length':float(product.length) if product.length is not None else None,
                     'width':float(product.width) if product.width is not None else None,
                     'status':product.status,
-                    'taxcode':product.taxcode
+                    'taxcode':product.taxcode,
+                    'average_stars':product.average_stars,
+                    'total_stars':product.total_stars
                     }
                 products_found.append(product_found)
                 
@@ -388,7 +416,9 @@ async def get_product_admins(
             'width':float(product_db.width) if product_db.price is not None else None,
             'status':product_db.status,
             'images':product_images_list,
-            'taxcode':product_db.taxcode
+            'taxcode':product_db.taxcode,
+            'average_stars':product_db.average_stars,
+            'total_stars':product_db.total_stars
         }
         return JSONResponse(status_code=status.HTTP_200_OK, content={'product':product_response})
     except SQLAlchemyError:
@@ -437,7 +467,9 @@ async def get_products(
                 'length':float(product_db.length) if product_db.price is not None else None,
                 'width':float(product_db.width) if product_db.price is not None else None,
                 'status':product_db.status,
-                'images':product_images_list
+                'images':product_images_list,
+                'average_stars':product_db.average_stars,
+                'total_stars':product_db.total_stars
             }
             products_response.append(product_response)
                 
@@ -480,7 +512,9 @@ async def get_product(
             'length':float(existing_product.length) if existing_product.price is not None else None,
             'width':float(existing_product.width) if existing_product.price is not None else None,
             'status':existing_product.status,
-            'images':product_images_list
+            'images':product_images_list,
+            'average_stars':existing_product.average_stars,
+            'total_stars':existing_product.total_stars
         }
         return JSONResponse(status_code=status.HTTP_200_OK, content={'product':product_response})
     except SQLAlchemyError:
@@ -552,6 +586,18 @@ async def get_products_search(
         if products_params.max_width is not None:
             query=query.filter(Products.width<=products_params.max_width)
             
+        if products_params.min_average_stars is not None:
+            query=query.filter(Products.average_stars>=products_params.min_average_stars)
+            
+        if products_params.max_average_stars is not None:
+            query=query.filter(Products.average_stars<=products_params.max_average_stars)
+        
+        if products_params.min_total_stars is not None:
+            query=query.filter(Products.total_stars>=products_params.min_total_stars)
+            
+        if products_params.max_total_stars is not None:
+            query=query.filter(Products.total_stars<=products_params.max_total_stars)    
+            
         if products_params.sort_by==ProductsSortBy.price_asc:
             query=query.order_by(Products.price.asc())
             
@@ -588,6 +634,18 @@ async def get_products_search(
         elif products_params.sort_by==ProductsSortBy.width_desc:
             query=query.order_by(Products.width.desc())
             
+        elif products_params.sort_by==ProductsSortBy.average_stars_asc:
+            query=query.order_by(Products.average_stars.asc())
+            
+        elif products_params.sort_by==ProductsSortBy.average_stars_desc:
+            query=query.order_by(Products.average_stars.desc())
+            
+        elif products_params.sort_by==ProductsSortBy.total_stars_asc:
+            query=query.order_by(Products.total_stars.asc())
+            
+        elif products_params.sort_by==ProductsSortBy.total_stars_desc:
+            query=query.order_by(Products.total_stars.desc())
+            
         
         
         offset=(page-1)*limit
@@ -623,7 +681,9 @@ async def get_products_search(
                     'length':float(product.length) if product.length is not None else None,
                     'width':float(product.width) if product.width is not None else None,
                     'status':product.status,
-                    'images':product_images_list
+                    'images':product_images_list,
+                    'average_stars':product.average_stars,
+                    'total_stars':product.total_stars
                     }
                 products_found.append(product_found)
                 

@@ -29,6 +29,8 @@ class Products(Base):
     taxcode=Column(String(200),nullable=False)
     reserve_stock=Column(Integer, nullable=False)
     available_stock=Column(Integer, nullable=False)
+    average_stars=Column(Float, nullable=True)
+    total_stars=Column(Integer, nullable=True)
     
     __table_args__ = (
         #CheckConstraint('stock >= 0', name='check_stock_positive'), because if there are oversold overs, it can exist

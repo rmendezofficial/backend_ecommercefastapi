@@ -77,6 +77,10 @@ class ProductsSortBy(str,PyEnum):
     length_desc='length_desc'
     width_asc='width_asc'
     width_desc='width_desc'
+    average_stars_asc='average_stars_asc'
+    average_stars_desc='average_stars_desc'
+    total_stars_asc='total_stars_asc'
+    total_stars_desc='total_stars_desc'
 
 class ProductsInventoryParams(BaseModel):
     query_title:Annotated[str|None,constr(max_length=200)]=None
@@ -99,6 +103,10 @@ class ProductsInventoryParams(BaseModel):
     max_length:float|None=None
     min_width:float|None=None
     max_width:float|None=None
+    min_average_stars:float|None=None
+    max_average_stars:float|None=None
+    min_total_stars:int|None=None
+    max_total_stars:int|None=None
     sort_by:ProductsSortBy|None=None
     
     
@@ -116,6 +124,8 @@ class ProductsSortByUser(str,PyEnum):
     length_desc='length_desc'
     width_asc='width_asc'
     width_desc='width_desc'
+    average_stars_asc='average_stars_asc'
+    average_stars_desc='average_stars_desc'
 
 class ProductsSearchUser(BaseModel):
     query_title:Annotated[str|None,constr(max_length=200)]=None
@@ -133,6 +143,10 @@ class ProductsSearchUser(BaseModel):
     max_length:float|None=None
     min_width:float|None=None
     max_width:float|None=None
+    min_average_stars:float|None=None
+    max_average_stars:float|None=None
+    min_total_stars:int|None=None
+    max_total_stars:int|None=None
     sort_by:ProductsSortByUser|None=None
     
     

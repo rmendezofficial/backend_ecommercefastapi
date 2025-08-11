@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Response, HTTPException, status
-from routers import users, products,cart_and_payment, orders, categories
+from routers import users, products,cart_and_payment, orders, categories, stars
 from contextlib import asynccontextmanager
 from database import engine, Base, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
@@ -130,5 +130,5 @@ app.include_router(products.router)
 app.include_router(cart_and_payment.router)
 app.include_router(orders.router)
 app.include_router(categories.router)
-
+app.include_router(stars.router)
 

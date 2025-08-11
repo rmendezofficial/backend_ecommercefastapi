@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, Text, Float, ForeignKey, Numeric, Enum
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Text, Float, ForeignKey, Numeric, Enum, CheckConstraint
 from sqlalchemy.sql import func
 from database import Base
 from sqlalchemy.orm import relationship
@@ -14,3 +14,7 @@ class Stars(Base):
     created_at=Column(DateTime,server_default=func.now())
     
     
+    __table_args__ = (
+        CheckConstraint('stars_number >= 1', name='check_stars_greater_than_or_equal_to_1'),
+        CheckConstraint('stars_number <= 5', name='check_stars_less_than_or_equal_to_5')
+    )
