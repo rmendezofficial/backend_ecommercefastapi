@@ -31,9 +31,9 @@ async def update_order_status(
         session.commit()
         session.refresh(order_db)
         return JSONResponse(status_code=status.HTTP_200_OK, content={'message':f'Order status successfully updated to {order_db.status}'})
-    except SQLAlchemyError:
+    except SQLAlchemyError as e:
         session.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while updating the order')
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'An error occurred while updating the order: {e}')
         
         
     
