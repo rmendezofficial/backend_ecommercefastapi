@@ -27,7 +27,7 @@ async def update_order_status(
     if not order_db:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The order does not exist')
     try:
-        order_db.status=order_status
+        order_db.status=order_status.order_status
         session.commit()
         session.refresh(order_db)
         return JSONResponse(status_code=status.HTTP_200_OK, content={'message':f'Order status successfully updated to {order_db.status}'})
