@@ -12,6 +12,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from models.reservations import Reservations
 from models.wishlists import Wishlist
 from schemas.users import User
+from models.reviews import Reviews
+from models.users import Users
 
 
 router=APIRouter(prefix='/products')
@@ -19,6 +21,12 @@ router=APIRouter(prefix='/products')
 def in_wishlist(session:SessionDB, user_id:int, product_id:int):
     wishlist_product_db=session.query(Wishlist).filter(Wishlist.product_id==product_id, Wishlist.user_id==user_id).first()
     if wishlist_product_db:
+        return True
+    return False
+
+def exists_review(session:SessionDB, user_id:int, product_id:int):
+    existing_review_db=session.query(Reviews).filter(Reviews.product_id==product_id, Reviews.user_id==user_id).first()
+    if existing_review_db:
         return True
     return False
 
@@ -497,8 +505,10 @@ async def get_product(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail='Product does not exist')
     try:
         product_in_wishlist=None
+        my_review_in_product=None
         if user:
             product_in_wishlist=in_wishlist(session, user.id, product_id)
+            my_review_in_product=exists_review(session, user.id, product_id)
         
         is_stock=get_stock(existing_product)
         product_category_db=session.query(Categories).filter(Categories.id==existing_product.category_id).first()
@@ -512,6 +522,23 @@ async def get_product(
                 'is_main':image_db.is_main
             }
             product_images_list.append(image_db_dict)
+        reviews_product=[]
+        reviews_product_db=session.query(Reviews).filter(Reviews.product_id==product_id).all()
+        for review_product_db in reviews_product_db:
+            
+            review_user=session.query(Users).filter(Users.id==review_product_db.user_id).first()
+            
+            reviews_product.append({
+                'id':review_product_db.id,
+                'product_id':review_product_db.product_id,
+                'user_id':review_product_db.user_id,
+                'review_text':review_product_db.review_text,
+                'created_at':review_product_db.created_at.isoformat(),
+                'edited':review_product_db.edited,
+                'review_user_username':review_user.username
+            })
+            
+            
         product_response={
             'id':existing_product.id,
             'title':existing_product.title,
@@ -528,7 +555,9 @@ async def get_product(
             'images':product_images_list,
             'average_stars':existing_product.average_stars,
             'total_stars':existing_product.total_stars,
-            'in_wishlist':product_in_wishlist
+            'in_wishlist':product_in_wishlist,
+            'my_review_in_product':my_review_in_product,
+            'reviews':reviews_product
         }
         return JSONResponse(status_code=status.HTTP_200_OK, content={'product':product_response})
     except SQLAlchemyError:

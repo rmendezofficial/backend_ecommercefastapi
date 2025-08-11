@@ -12,4 +12,4 @@ class Reviews(Base):
     user_id=Column(Integer,ForeignKey('users.id'),nullable=False)
     review_text=Column(Text, nullable=False)
     created_at=Column(DateTime,server_default=func.now())
-    
+    edited=Column(Boolean, nullable=False)
