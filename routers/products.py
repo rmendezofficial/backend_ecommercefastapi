@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request, Header, HTTPException,status
 from fastapi.responses import JSONResponse
 from typing import Annotated
-from routers.users import is_admin
+from routers.users import is_admin, get_current_active_user_custom
 from fastapi_csrf_protect import CsrfProtect
 from fastapi_csrf_protect.exceptions import CsrfProtectError
 from models.products import Products, product_images
@@ -10,6 +10,9 @@ from schemas.products import Product, ProductImages, ProductUser, ProductUpdate,
 from dependencies.database import SessionDB
 from sqlalchemy.exc import SQLAlchemyError
 from models.reservations import Reservations
+from models.wishlists import Wishlist
+from schemas.users import User
+from routers.wishlists import in_wishlist
 
 
 router=APIRouter(prefix='/products')
@@ -479,6 +482,7 @@ async def get_products(
 
 @router.get('/get_product/{product_id}',tags=['products'])
 async def get_product(
+    user:Annotated[User, Depends(get_current_active_user_custom)],
     request:Request,
     session:SessionDB,
     product_id:int
@@ -487,6 +491,10 @@ async def get_product(
     if not existing_product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail='Product does not exist')
     try:
+        product_in_wishlist=None
+        if user:
+            product_in_wishlist=in_wishlist(session, user.id, product_id)
+        
         is_stock=get_stock(existing_product)
         product_category_db=session.query(Categories).filter(Categories.id==existing_product.category_id).first()
         product_images_db=session.query(product_images).filter(product_images.product_id==product_id).all()
@@ -514,7 +522,8 @@ async def get_product(
             'status':existing_product.status,
             'images':product_images_list,
             'average_stars':existing_product.average_stars,
-            'total_stars':existing_product.total_stars
+            'total_stars':existing_product.total_stars,
+            'in_wishlist':product_in_wishlist
         }
         return JSONResponse(status_code=status.HTTP_200_OK, content={'product':product_response})
     except SQLAlchemyError:

@@ -60,7 +60,7 @@ async def rate_stars(
         return JSONResponse(status_code=status.HTTP_201_CREATED,content={'message':'Product rated successfully.'})
     except SQLAlchemyError:
         session.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while adding the product to the cart')
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='An error occurred while rating the product')
     
     
     

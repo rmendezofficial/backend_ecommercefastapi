@@ -101,12 +101,41 @@ async def get_current_user(request:Request, session:SessionDB):
     user_without_password=User(id=user.id,username=user.username, email=user.email, disabled=user.disabled,name=user.name,lastname=user.lastname,verified=user.verified,role=user.role,stripe_id=user.stripe_id, phone_number=user.phone_number)
     return user_without_password
 
+async def get_current_user_custom(request:Request, session:SessionDB): #same but without raising exceptions if no user found, for get products
+    token = request.cookies.get("access_token")
+    if not token:
+        return False
+    try:
+        payload=jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username=payload.get('sub')
+        if username is None:
+            return False
+        token_data=TokenData(username=username)
+    except ExpiredSignatureError:
+        return False
+    except InvalidTokenError:
+        return False
+    user=get_user(session, username=token_data.username)
+    if user is None:
+        return False
+    user_without_password=User(id=user.id,username=user.username, email=user.email, disabled=user.disabled,name=user.name,lastname=user.lastname,verified=user.verified,role=user.role,stripe_id=user.stripe_id, phone_number=user.phone_number)
+    return user_without_password
+
 async def get_current_active_user(current_user:Annotated[User,Depends(get_current_user)]):
     #if current_user.verified==True: #set to false in production
     #    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail='Please verify your email')
     if current_user.disabled==True:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail='Inactive user')
     return current_user
+
+async def get_current_active_user_custom(current_user:Annotated[User,Depends(get_current_user_custom)]):
+    if current_user:
+        #if current_user.verified==True: #set to false in production
+            #return False
+        if current_user.disabled==True:
+            return False
+        return current_user
+    return False
 
 async def is_admin(active_current_user:Annotated[User, Depends(get_current_active_user)]):
     return active_current_user.role=='admin'
