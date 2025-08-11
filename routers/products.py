@@ -59,7 +59,7 @@ async def create_product(
         
         category_id=get_or_create_category(session, product.category)
         
-        product_db=Products(title=product.title,description=product.description,price=product.price,stock=product.stock,category_id=category_id,discount_percentage=product.discount_percentage,weight=product.weight,height=product.height,length=product.length,width=product.width,status='active',taxcode=product.taxcode,reserve_stock=0,available_stock=product.stock, average_stars=None, total_stars=None)
+        product_db=Products(title=product.title,description=product.description,price=product.price,stock=product.stock,category_id=category_id,discount_percentage=product.discount_percentage,weight=product.weight,height=product.height,length=product.length,width=product.width,status='active',taxcode=product.taxcode,reserve_stock=0,available_stock=product.stock, average_stars=0, total_stars=0)
         session.add(product_db)
         session.commit()
         session.refresh(product_db)

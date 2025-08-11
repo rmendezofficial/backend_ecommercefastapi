@@ -15,6 +15,6 @@ class Stars(Base):
     
     
     __table_args__ = (
-        CheckConstraint('stars_number >= 1', name='check_stars_greater_than_or_equal_to_1'),
+        CheckConstraint('stars_number >= 0', name='check_stars_greater_than_or_equal_to_0'), #0 is for not rated
         CheckConstraint('stars_number <= 5', name='check_stars_less_than_or_equal_to_5')
     )

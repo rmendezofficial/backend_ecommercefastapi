@@ -43,10 +43,6 @@ async def rate_stars(
     if not existing_order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='You cannot rate this product because you have not made a delivered order for it.')
     try: #handle case where stars is null
-        if product_db.average_stars==None:
-            product_db.average_stars=0
-            product_db.total_stars=0
-            session.flush()
         
         existing_star_db=session.query(Stars).filter(Stars.product_id==star.product_id, Stars.user_id==user.id).first()
         if existing_star_db: #update the rating

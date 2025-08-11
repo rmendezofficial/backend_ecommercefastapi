@@ -126,6 +126,8 @@ class ProductsSortByUser(str,PyEnum):
     width_desc='width_desc'
     average_stars_asc='average_stars_asc'
     average_stars_desc='average_stars_desc'
+    total_stars_asc='total_stars_asc'
+    total_stars_desc='total_stars_desc'
 
 class ProductsSearchUser(BaseModel):
     query_title:Annotated[str|None,constr(max_length=200)]=None
